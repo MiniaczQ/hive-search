@@ -1,0 +1,5 @@
+/*
+Communication with the server.
+Send current state.
+Receive shared state.
+*/
