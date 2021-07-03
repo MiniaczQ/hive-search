@@ -687,6 +687,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hematite-nbt"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670d0784ee67cfb57393dc1837867d2951f9a59ca7db99a653499c854f745739"
+dependencies = [
+ "byteorder",
+ "cesu8",
+ "flate2",
+ "serde",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -701,7 +713,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "druid",
- "quartz_nbt",
+ "hematite-nbt",
  "regex",
  "serde",
 ]
@@ -1043,17 +1055,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "quartz_nbt"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d9e12be4534d04f84f09abf2c69f29449e1fe78d9045b7f83adeace7e97217d"
-dependencies = [
- "byteorder",
- "cesu8",
- "flate2",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1387,9 +1388,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb0d2e7be6ae3a5fa87eed5fb451aff96f2573d2694942e40543ae0bbe19c796"
+checksum = "8895849a949e7845e06bd6dc1aa51731a103c42707010a5b591c0038fb73385b"
 
 [[package]]
 name = "unicode-xid"

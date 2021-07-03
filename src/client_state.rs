@@ -6,8 +6,7 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub enum ClientStates {
-    Offline,        // Minecraft client is offline
-    Online,         // Minecraft client is running
+    NotHosting,     // Minecraft client is running
     Hosting(u16),   // User is hosting on his own world
 }
 
@@ -15,7 +14,7 @@ pub struct ClientState(Arc<RwLock<ClientStates>>);
 
 impl ClientState {
     pub fn new() -> Self {
-        ClientState(Arc::new(RwLock::new(ClientStates::Offline)))
+        ClientState(Arc::new(RwLock::new(ClientStates::NotHosting)))
     }
 
     pub fn set(&mut self, new: ClientStates) {

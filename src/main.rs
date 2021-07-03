@@ -1,30 +1,41 @@
-mod log_reader;
-mod client_state;
 mod client;
-mod server;
+mod log_reader;
 mod message;
+mod server;
+mod config;
+mod nbt_writer;
+mod icons;
 
-use std::net::SocketAddr;
 use std::thread;
 
-use log_reader::track_logs;
-use client_state::ClientState;
+use client::*;
+use config::load_config;
 use server::*;
 
 fn main() {
-    let mut state = ClientState::new();
-    let a = thread::Builder::new()
-        .name("log reader".to_string())
-        .spawn(move || track_logs(&"latest.log".to_string(), &mut state))
-        .unwrap();
+    let config = load_config();
 
-   let addr: SocketAddr = "127.0.0.1:2137".parse().unwrap();
-   let server_config = ServerConfig {addr};
-   let b = thread::Builder::new()
-       .name("server".to_string())
-       .spawn(move || server::run(server_config))
-       .unwrap();
+    let client_config = ClientConfig {
+        server_addr: config.server_addr.clone(),
+        log_path: config.log_path.clone(),
+        nbt_path: config.nbt_path.clone(),
+    };
+    let client = thread::Builder::new()
+        .name("client".to_string())
+        .spawn(move || client::run(client_config))
+        .expect("Failed to start a thread.");
 
-   a.join();
-   b.join();
+    if config.server_host {
+        let server_config = ServerConfig {
+            server_addr: config.server_addr.clone(),
+        };
+        let server = thread::Builder::new()
+            .name("server".to_string())
+            .spawn(move || server::run(server_config))
+            .expect("Failed to start a thread.");
+        
+        server.join().expect("Failed to join threads.");
+    }
+
+    client.join().expect("Failed to join threads.");
 }
