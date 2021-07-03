@@ -70,6 +70,7 @@ fn from_client(
     writers: TcpStreamVec,
     hosts: AddrMap,
 ) {
+    update_server(&writers, &hosts, ClientUpdate::Joined);
     loop {
         let result = bincode::deserialize_from::<&mut TcpStream, ClientMessage>(&mut reader);
         if let Ok(message) = result {
@@ -79,10 +80,11 @@ fn from_client(
                 match message.update {
                     ClientUpdate::StartedHosting => {
                         hosts.insert(ip,message.port);
-                    }
+                    },
                     ClientUpdate::StoppedHosting => {
                         hosts.remove(&ip);
-                    }
+                    },
+                    _ => {},
                 }
             }
             update_server(&writers, &hosts, message.update);
@@ -124,10 +126,10 @@ fn get_server_update(
 ) -> Option<ServerMessage> {
     let hosts = hosts.lock().expect("Failed to acquire mutex lock.");
     let len = hosts.len();
-    let prev_len = if let ClientUpdate::StartedHosting = update {
-        len - 1
-    } else {
-        len + 1
+    let prev_len = match update {
+        ClientUpdate::StartedHosting => len - 1,
+        ClientUpdate::StoppedHosting => len + 1,
+        ClientUpdate::Joined => (len + 1) % 3,
     };
     if len.clamp(0, 2) != prev_len.clamp(0, 2) {
         let addr: SocketAddr = "0.0.0.0:0".parse().expect("Failed to parse constant expression to IP address.");

@@ -16,6 +16,7 @@ pub struct ClientMessage {
 pub enum ClientUpdate {
     StartedHosting,
     StoppedHosting,
+    Joined,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -1,4 +1,4 @@
-IP:PORT
-false
-logs\latest.log
+127.0.0.1:2137
+true
+latest.log
 servers.dat

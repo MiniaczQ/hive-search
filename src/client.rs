@@ -25,24 +25,29 @@ pub struct ClientConfig {
 }
 
 pub fn run(config: ClientConfig) {
-    let reader = TcpStream::connect(config.server_addr).expect("Failed to connect to TCP socket.");
-    let writer = reader.try_clone().expect("Failed to clone TCP stream.");
-    
-    let log_path = config.log_path;
-    let nbt_path = config.nbt_path;
+    loop {
+        println!("Attempting to connect to server.");
+        let reader = TcpStream::connect(config.server_addr).expect("Failed to connect to TCP socket.");
+        println!("Connected to server.");
+        let writer = reader.try_clone().expect("Failed to clone TCP stream.");
+        
+        let log_path = config.log_path.clone();
+        let nbt_path = config.nbt_path.clone();
 
-    let log_reader = thread::Builder::new()
-        .name("log reader".to_string())
-        .spawn(move || log_reader::run(log_path, writer))
-        .expect("Failed to start a thread.");
+        let log_reader = thread::Builder::new()
+            .name("log reader".to_string())
+            .spawn(move || log_reader::run(log_path, writer))
+            .expect("Failed to start a thread.");
 
-    let nbt_writer = thread::Builder::new()
-        .name("nbt writer".to_string())
-        .spawn(move || from_server(reader, nbt_path))
-        .expect("Failed to start a thread.");
+        let nbt_writer = thread::Builder::new()
+            .name("nbt writer".to_string())
+            .spawn(move || from_server(reader, nbt_path))
+            .expect("Failed to start a thread.");
 
-    log_reader.join().expect("Failed to join threads.");
-    nbt_writer.join().expect("Failed to join threads.");
+        log_reader.join().expect("Failed to join threads.");
+        nbt_writer.join().expect("Failed to join threads.");
+        println!("Connection with server lost, reattempting.");
+    }
 }
 
 pub fn update_client_state(stream: &mut TcpStream, new: ClientStates) -> Result<(), Box<ErrorKind>> {
