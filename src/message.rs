@@ -1,5 +1,7 @@
 /*
-Socket communication standard
+Socket communication standards:
+Client -> Server (ClientMessage)
+Server -> Client (ServerMessage)
 */
 
 use serde::{Deserialize, Serialize};

@@ -5,7 +5,24 @@ mod server;
 mod config;
 mod nbt_writer;
 mod icons;
+mod ui;
 
+use druid::*;
+
+use ui::*;
+
+fn main() {
+    let hive_window = WindowDesc::new(hive())
+        .title("HiveSearch");
+    let data: HiveSearchData = HiveSearchData::default();
+    AppLauncher::with_window(hive_window)
+        .delegate(HiveSearchDelegate)
+        .log_to_console()
+        .launch(data)
+        .expect("Failed to open HiveSearch window.");
+}
+
+/*
 use std::thread;
 
 use client::*;
@@ -39,3 +56,4 @@ fn main() {
 
     client.join().expect("Failed to join threads.");
 }
+*/
