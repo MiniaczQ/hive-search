@@ -10,6 +10,7 @@ mod ui;
 */
 
 mod assets;
+mod nbt;
 
 use assets::icons::ServerIcons;
 
