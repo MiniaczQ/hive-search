@@ -1,3 +1,4 @@
+/*
 mod client;
 mod log_reader;
 mod message;
@@ -6,7 +7,18 @@ mod config;
 mod nbt_writer;
 mod icons;
 mod ui;
+*/
 
+mod assets;
+
+use assets::icons::ServerIcons;
+
+fn main() {
+    let icons = ServerIcons::get_icons();
+    println!("{}", icons.no_hosts.unwrap());
+}
+
+/*
 use druid::*;
 
 use ui::*;
@@ -21,7 +33,7 @@ fn main() {
         .launch(data)
         .expect("Failed to open HiveSearch window.");
 }
-
+*/
 /*
 use std::thread;
 
