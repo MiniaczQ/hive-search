@@ -66,7 +66,7 @@ fn has_marker<'a>(server: &'a mut Server, marker: &str) -> Option<&'a mut Server
 Return optional server if one starts with the marker.
 */
 fn get_marked_server<'a>(servers: &'a mut Vec<Server>, marker: &str) -> Option<&'a mut Server> {
-    servers.into_iter().find_map(|server| has_marker(server, MARKER))
+    servers.into_iter().find_map(|server| has_marker(server, marker))
 }
 
 /*
@@ -117,33 +117,32 @@ fn update_server_data(
     icons: &ServerIcons,
 ) {
     let hive_search_server = get_marked_server(&mut data.servers, MARKER);
-
-    let (name, ip, icon) = data_from_instruction(instruction, icons);
-
+    let (name, opt_ip, opt_icon) = data_from_instruction(instruction, icons);
+    println!("Server data updated to {}.", &name);
     if let Some(server) = hive_search_server {
-        server.update(name, ip, icon);
+        server.update(Some(name), opt_ip, opt_icon);
     } else {
-        data.servers.push(Server::new(name, ip, icon));
+        data.servers.push(Server::new(Some(name), opt_ip, opt_icon));
     }
 }
 
 /*
 Turns instruction into usable data.
 */
-fn data_from_instruction(instruction: Instructions, icons: &ServerIcons) -> (Option<String>, Option<String>, Option<String>) {
+fn data_from_instruction(instruction: Instructions, icons: &ServerIcons) -> (String, Option<String>, Option<String>) {
     match instruction {
         Instructions::SetToNoHost => {(
-            Some(format!("{}HiveSearch: §7No Games Open", MARKER)),
+            format!("{}HiveSearch: §7No Games Open", MARKER),
             None,
             icons.no_hosts.clone(),
         )},
         Instructions::SetToOneHost(addr) => {(
-            Some(format!("{}HiveSearch: §aGame Open", MARKER)),
+            format!("{}HiveSearch: §aGame Open", MARKER),
             Some(addr.to_string()),
             None,
         )},
         Instructions::SetToManyHosts => {(
-            Some(format!("{}HiveSearch: §6Multiple Games Open", MARKER)),
+            format!("{}HiveSearch: §6Multiple Games Open", MARKER),
             None,
             icons.many_hosts.clone(),
         )},

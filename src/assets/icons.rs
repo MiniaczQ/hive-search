@@ -8,6 +8,7 @@ use image::{DynamicImage, GenericImageView};
 
 type OptIcon = Option<String>;
 
+#[derive(Clone)]
 pub struct ServerIcons {
     pub no_hosts: OptIcon,
     pub many_hosts: OptIcon,
@@ -48,7 +49,7 @@ impl ServerIcons {
         if let Ok(image) = result {
             return Self::encode_valid(name, image)
         }
-        println!("Asset {} does not exist in {} or has invalid format.", name, path);
+        println!("Asset {} does not exist in '{}' or has invalid format.", name, path);
         None
     }
 
