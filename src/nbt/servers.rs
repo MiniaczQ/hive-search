@@ -25,7 +25,8 @@ struct Server {
     name: Option<String>,
     ip: Option<String>,
     icon: Option<String>,
-    #[serde(rename = "acceptTextures")] accept_textures: Option<bool>,
+    #[serde(rename = "acceptTextures")]
+    accept_textures: Option<bool>,
 }
 
 impl Server {
@@ -66,7 +67,9 @@ fn has_marker<'a>(server: &'a mut Server, marker: &str) -> Option<&'a mut Server
 Return optional server if one starts with the marker.
 */
 fn get_marked_server<'a>(servers: &'a mut Vec<Server>, marker: &str) -> Option<&'a mut Server> {
-    servers.into_iter().find_map(|server| has_marker(server, marker))
+    servers
+        .into_iter()
+        .find_map(|server| has_marker(server, marker))
 }
 
 /*
@@ -79,7 +82,7 @@ fn load_data(server_data_path: &String) -> ServerData {
 }
 
 /*
-Stores current server data into 
+Stores current server data into
 */
 fn save_data(server_data_path: &String, data: &ServerData) {
     let mut file = OpenOptions::new()
@@ -98,9 +101,12 @@ fn reload(
     server_data_path: &String,
     last_modification: &SystemTime,
 ) -> ServerData {
-    let current_modification = File::open(&server_data_path).expect("Failed to open file 'servers.dat'.")
-        .metadata().expect("Failed to extract metadata of file 'servers.dat'.")
-        .modified().expect("Failed to extract last modification time of file 'servers.dat'");
+    let current_modification = File::open(&server_data_path)
+        .expect("Failed to open file 'servers.dat'.")
+        .metadata()
+        .expect("Failed to extract metadata of file 'servers.dat'.")
+        .modified()
+        .expect("Failed to extract last modification time of file 'servers.dat'");
     if !current_modification.eq(last_modification) {
         data = load_data(server_data_path);
     }
@@ -111,14 +117,9 @@ fn reload(
 Applies instruction to server data.
 If server didn't exist before, it gets created.
 */
-fn update_server_data(
-    data: &mut ServerData,
-    instruction: Instructions,
-    icons: &ServerIcons,
-) {
+fn update_server_data(data: &mut ServerData, instruction: Instructions, icons: &ServerIcons) {
     let hive_search_server = get_marked_server(&mut data.servers, MARKER);
     let (name, opt_ip, opt_icon) = data_from_instruction(instruction, icons);
-    println!("Server data updated to {}.", &name);
     if let Some(server) = hive_search_server {
         server.update(Some(name), opt_ip, opt_icon);
     } else {
@@ -129,63 +130,64 @@ fn update_server_data(
 /*
 Turns instruction into usable data.
 */
-fn data_from_instruction(instruction: Instructions, icons: &ServerIcons) -> (String, Option<String>, Option<String>) {
+fn data_from_instruction(
+    instruction: Instructions,
+    icons: &ServerIcons,
+) -> (String, Option<String>, Option<String>) {
     match instruction {
-        Instructions::SetToNoHost => {(
+        Instructions::SetToNoHost => (
             format!("{}HiveSearch: §7No Games Open", MARKER),
             None,
             icons.no_hosts.clone(),
-        )},
-        Instructions::SetToOneHost(addr) => {(
+        ),
+        Instructions::SetToOneHost(addr) => (
             format!("{}HiveSearch: §aGame Open", MARKER),
             Some(addr.to_string()),
             None,
-        )},
-        Instructions::SetToManyHosts => {(
+        ),
+        Instructions::SetToManyHosts => (
             format!("{}HiveSearch: §6Multiple Games Open", MARKER),
             None,
             icons.many_hosts.clone(),
-        )},
+        ),
     }
 }
 
 /*
 Runs the functionality.
 */
-fn run(
-    isrc: Receiver<Instructions>,
-    icons: ServerIcons,
-    server_data_path: String,
-) {
+fn run(instruction_source: Receiver<Instructions>, icons: ServerIcons, server_data_path: String) {
     let mut last_modification: SystemTime = SystemTime::now();
     let mut data: ServerData = load_data(&server_data_path);
     loop {
-        let result = isrc.recv();
+        let result = instruction_source.recv();
         if let Ok(instruction) = result {
             data = reload(data, &server_data_path, &last_modification);
             update_server_data(&mut data, instruction, &icons);
             save_data(&server_data_path, &data);
-            last_modification = File::open(&server_data_path).expect("Failed to open file 'servers.dat'.")
-                .metadata().expect("Failed to extract metadata of file 'servers.dat'.")
-                .modified().expect("Failed to extract last modification time of file 'servers.dat'");
+            last_modification = File::open(&server_data_path)
+                .expect("Failed to open file 'servers.dat'.")
+                .metadata()
+                .expect("Failed to extract metadata of file 'servers.dat'.")
+                .modified()
+                .expect("Failed to extract last modification time of file 'servers.dat'");
         } else {
-            break
+            break;
         }
     }
 }
 
 /*
 Start the functionality in another thread.
-Return handle.
+Returns handle.
 */
 pub fn spawn(
-    isrc: Receiver<Instructions>,
+    instruction_source: Receiver<Instructions>,
     icons: ServerIcons,
     server_data_path: String,
 ) -> JoinHandle<()> {
     thread::Builder::new()
         .name("Server Data Editor".to_string())
-        .spawn(move ||
-            run(isrc, icons, server_data_path)
-        ).expect("Couldn't start the Server Data Eeditor thread.")
+        .spawn(move || run(instruction_source, icons, server_data_path))
+        .expect("Couldn't start the Server Data Eeditor thread.")
 }

@@ -2,4 +2,4 @@
 Log processing.
 */
 
-mod logs;
+pub mod reader;

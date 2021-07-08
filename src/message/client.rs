@@ -7,5 +7,6 @@ use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
-    
+    StartedHosting(u16),
+    StoppedHosting,
 }

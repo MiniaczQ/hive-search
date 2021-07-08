@@ -1,5 +1,3 @@
-
-
 /*
 mod client;
 mod log_reader;
@@ -12,9 +10,17 @@ mod ui;
 */
 
 mod assets;
+mod logs;
 mod nbt;
+mod message;
 
-use std::{net::SocketAddr, str::FromStr, sync::mpsc::channel, thread::{self, sleep}, time::Duration};
+use std::{
+    net::SocketAddr,
+    str::FromStr,
+    sync::mpsc::channel,
+    thread::{self, sleep},
+    time::Duration,
+};
 
 fn main() {
     let (send, recv) = channel();
@@ -23,22 +29,29 @@ fn main() {
     let nbt = nbt::servers::spawn(recv, icons.clone(), server_data_path.clone());
     thread::spawn(move || {
         sleep(Duration::from_secs(1));
-        send.send(nbt::servers::Instructions::SetToManyHosts).unwrap();
+        send.send(nbt::servers::Instructions::SetToManyHosts)
+            .unwrap();
         sleep(Duration::from_secs(1));
         send.send(nbt::servers::Instructions::SetToNoHost).unwrap();
         sleep(Duration::from_secs(1));
-        send.send(nbt::servers::Instructions::SetToManyHosts).unwrap();
+        send.send(nbt::servers::Instructions::SetToManyHosts)
+            .unwrap();
         sleep(Duration::from_secs(1));
         send.send(nbt::servers::Instructions::SetToNoHost).unwrap();
         sleep(Duration::from_secs(1));
-        send.send(nbt::servers::Instructions::SetToManyHosts).unwrap();
+        send.send(nbt::servers::Instructions::SetToManyHosts)
+            .unwrap();
         sleep(Duration::from_secs(1));
-        send.send(nbt::servers::Instructions::SetToOneHost(SocketAddr::from_str("0.0.0.0:0").unwrap())).unwrap();
+        send.send(nbt::servers::Instructions::SetToOneHost(
+            SocketAddr::from_str("0.0.0.0:0").unwrap(),
+        ))
+        .unwrap();
         sleep(Duration::from_secs(1));
-        send.send(nbt::servers::Instructions::SetToManyHosts).unwrap();
+        send.send(nbt::servers::Instructions::SetToManyHosts)
+            .unwrap();
         sleep(Duration::from_secs(1));
     });
-    
+
     nbt.join().unwrap();
 }
 
@@ -86,7 +99,7 @@ fn main() {
             .name("server".to_string())
             .spawn(move || server::run(server_config))
             .expect("Failed to start a thread.");
-        
+
         server.join().expect("Failed to join threads.");
     }
 

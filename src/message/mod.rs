@@ -2,5 +2,5 @@
 Network communication standards.
 */
 
-mod client;
-mod server;
+pub mod client;
+pub mod server;
