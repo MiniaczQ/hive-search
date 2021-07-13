@@ -14,7 +14,7 @@ use crate::assets::icons::ServerIcons;
 
 const MARKER: &str = "§5§2§7§d§8§2§a§e§r"; // 0x527D82AE
 
-pub enum Instructions {
+pub enum NbtCommand {
     SetToNoHost,
     SetToOneHost(SocketAddr),
     SetToManyHosts,
@@ -117,7 +117,7 @@ fn reload(
 Applies instruction to server data.
 If server didn't exist before, it gets created.
 */
-fn update_server_data(data: &mut ServerData, instruction: Instructions, icons: &ServerIcons) {
+fn update_server_data(data: &mut ServerData, instruction: NbtCommand, icons: &ServerIcons) {
     let hive_search_server = get_marked_server(&mut data.servers, MARKER);
     let (name, opt_ip, opt_icon) = data_from_instruction(instruction, icons);
     if let Some(server) = hive_search_server {
@@ -131,21 +131,21 @@ fn update_server_data(data: &mut ServerData, instruction: Instructions, icons: &
 Turns instruction into usable data.
 */
 fn data_from_instruction(
-    instruction: Instructions,
+    instruction: NbtCommand,
     icons: &ServerIcons,
 ) -> (String, Option<String>, Option<String>) {
     match instruction {
-        Instructions::SetToNoHost => (
+        NbtCommand::SetToNoHost => (
             format!("{}HiveSearch: §7No Games Open", MARKER),
             None,
             icons.no_hosts.clone(),
         ),
-        Instructions::SetToOneHost(addr) => (
+        NbtCommand::SetToOneHost(addr) => (
             format!("{}HiveSearch: §aGame Open", MARKER),
             Some(addr.to_string()),
             None,
         ),
-        Instructions::SetToManyHosts => (
+        NbtCommand::SetToManyHosts => (
             format!("{}HiveSearch: §6Multiple Games Open", MARKER),
             None,
             icons.many_hosts.clone(),
@@ -156,11 +156,11 @@ fn data_from_instruction(
 /*
 Runs the functionality.
 */
-fn run(instruction_source: Receiver<Instructions>, icons: ServerIcons, server_data_path: String) {
+fn run(nbt_source: Receiver<NbtCommand>, icons: ServerIcons, server_data_path: String) {
     let mut last_modification: SystemTime = SystemTime::now();
     let mut data: ServerData = load_data(&server_data_path);
     loop {
-        let result = instruction_source.recv();
+        let result = nbt_source.recv();
         if let Ok(instruction) = result {
             data = reload(data, &server_data_path, &last_modification);
             update_server_data(&mut data, instruction, &icons);
@@ -182,12 +182,12 @@ Start the functionality in another thread.
 Returns handle.
 */
 pub fn spawn(
-    instruction_source: Receiver<Instructions>,
+    nbt_source: Receiver<NbtCommand>,
     icons: ServerIcons,
     server_data_path: String,
 ) -> JoinHandle<()> {
     thread::Builder::new()
         .name("Server Data Editor".to_string())
-        .spawn(move || run(instruction_source, icons, server_data_path))
-        .expect("Couldn't start the Server Data Eeditor thread.")
+        .spawn(move || run(nbt_source, icons, server_data_path))
+        .expect("Failed to start the Server Data Eeditor thread.")
 }

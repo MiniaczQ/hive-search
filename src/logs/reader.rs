@@ -5,7 +5,7 @@ Logs reader.
 use regex::RegexSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{SendError, Sender};
 use std::thread::{self, sleep, JoinHandle};
 use std::time::Duration;
 
@@ -66,7 +66,7 @@ fn match_lines(matcher: &RegexSet, buffer: &mut BufReader<File>) -> Option<Clien
 /*
 Send message to client.
 */
-fn send(client_sink: &Sender<ClientMessage>, change: ClientChange) {
+fn send(client_sink: &Sender<ClientMessage>, change: ClientChange) -> Result<(), SendError<ClientMessage>> {
     let message: ClientMessage;
     match change {
         ClientChange::StartedHosting(port) => {
@@ -76,7 +76,7 @@ fn send(client_sink: &Sender<ClientMessage>, change: ClientChange) {
             message = ClientMessage::StoppedHosting;
         }
     }
-    client_sink.send(message);
+    client_sink.send(message)
 }
 
 /*
@@ -115,7 +115,9 @@ fn run(log_path: String, client_sink: Sender<ClientMessage>) {
         }
         
         if let Some(change) = result {
-            send(&client_sink, change);
+            if let Err(_) = send(&client_sink, change) {
+                break;
+            }
         }
 
         sleep(Duration::from_secs_f32(LOG_CHECK_FREQUENCY));
@@ -130,5 +132,5 @@ pub fn spawn(log_path: String, client_sink: Sender<ClientMessage>) -> JoinHandle
     thread::Builder::new()
         .name("Client Log Reader".to_string())
         .spawn(move || run(log_path, client_sink))
-        .expect("Couldn't start the Client Log Reader thread.")
+        .expect("Failed to start the Client Log Reader thread.")
 }
