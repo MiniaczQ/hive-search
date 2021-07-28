@@ -6,6 +6,8 @@ use nbt::*;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::thread::{self, JoinHandle};
 use std::time::SystemTime;
@@ -156,10 +158,15 @@ fn data_from_instruction(
 /*
 Runs the functionality.
 */
-fn run(nbt_source: Receiver<NbtCommand>, icons: ServerIcons, server_data_path: String) {
+fn run(
+    nbt_source: Receiver<NbtCommand>,
+    icons: ServerIcons,
+    server_data_path: String,
+    breaker: Arc<AtomicBool>,
+) {
     let mut last_modification: SystemTime = SystemTime::now();
     let mut data: ServerData = load_data(&server_data_path);
-    loop {
+    while breaker.load(Ordering::Relaxed) {
         let result = nbt_source.recv();
         if let Ok(instruction) = result {
             data = reload(data, &server_data_path, &last_modification);
@@ -185,9 +192,10 @@ pub fn spawn(
     nbt_source: Receiver<NbtCommand>,
     icons: ServerIcons,
     server_data_path: String,
+    breaker: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     thread::Builder::new()
         .name("Server Data Editor".to_string())
-        .spawn(move || run(nbt_source, icons, server_data_path))
+        .spawn(move || run(nbt_source, icons, server_data_path, breaker))
         .expect("Failed to start the Server Data Eeditor thread.")
 }

@@ -5,6 +5,8 @@ Logs reader.
 use regex::RegexSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{SendError, Sender};
 use std::thread::{self, sleep, JoinHandle};
 use std::time::Duration;
@@ -82,12 +84,16 @@ fn send(client_sink: &Sender<ClientMessage>, change: ClientChange) -> Result<(),
 /*
 Runs the functionality.
 */
-fn run(log_path: String, client_sink: Sender<ClientMessage>) {
+fn run(
+    log_path: String,
+    client_sink: Sender<ClientMessage>,
+    breaker: Arc<AtomicBool>,
+) {
     let mut last_size: u64 = 0;
     let mut last_position: u64 = 0;
     let matcher = create_matcher();
 
-    loop {
+    while breaker.load(Ordering::Relaxed) {
         let file = File::open(&log_path).expect("Failed to open 'latest.log'.");
         let size = file
             .metadata()
@@ -128,9 +134,13 @@ fn run(log_path: String, client_sink: Sender<ClientMessage>) {
 Start the functionality in another thread.
 Returns handle.
 */
-pub fn spawn(log_path: String, client_sink: Sender<ClientMessage>) -> JoinHandle<()> {
+pub fn spawn(
+    log_path: String,
+    client_sink: Sender<ClientMessage>,
+    breaker: Arc<AtomicBool>,
+) -> JoinHandle<()> {
     thread::Builder::new()
         .name("Client Log Reader".to_string())
-        .spawn(move || run(log_path, client_sink))
+        .spawn(move || run(log_path, client_sink, breaker))
         .expect("Failed to start the Client Log Reader thread.")
 }
