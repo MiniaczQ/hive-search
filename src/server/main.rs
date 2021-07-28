@@ -54,6 +54,7 @@ fn handle_clients(
     while breaker.load(std::sync::atomic::Ordering::Relaxed) {
         let incoming = listener.accept();
         if let Ok((connection, addr)) = incoming {
+            connection.set_nonblocking(false).expect("Failed to turn the socket to blocking mode.");
             add_client(clients_sink.clone(), client_sinks.clone(), connection, addr, breaker.clone());
         }
         sleep(Duration::from_secs_f32(CLIENT_ACCEPT_INTERVAL));
@@ -72,7 +73,6 @@ fn add_client(
     {
         let mut server_sink = client_sinks.lock().expect("Failed to acquire mutex lock.");
         server_sink.insert(addr.ip(), client_sink);
-        println!("Connected -> {}", server_sink.len());
     }
 
     let reader = connection;
