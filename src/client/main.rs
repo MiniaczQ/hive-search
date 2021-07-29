@@ -52,7 +52,7 @@ fn run(
 
     sender.join().expect("Failed to join thread Client Sender.");
     receiver.join().expect("Failed to join thread Client Receiver.");
-    nbt.join().expect("Failed to join thread Server Data Eeditor.");
+    nbt.join().expect("Failed to join thread Server Data Editor.");
     log.join().expect("Failed to join thread Client Log Reader.");
 }
 

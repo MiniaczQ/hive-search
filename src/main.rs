@@ -5,6 +5,7 @@ mod message;
 mod client;
 mod server;
 mod ui;
+mod lib;
 
 use druid::*;
 
