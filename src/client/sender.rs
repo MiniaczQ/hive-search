@@ -1,6 +1,6 @@
 use std::{net::TcpStream, sync::{Arc, atomic::{AtomicBool, Ordering}, mpsc::Receiver}};
 
-use crate::message::client::ClientMessage;
+use crate::messages::ClientMessage;
 
 /*
 Sends messages to the server.

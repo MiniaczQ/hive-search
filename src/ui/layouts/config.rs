@@ -117,7 +117,7 @@ fn on_click_host(
         let breaker = Arc::new(AtomicBool::new(true));
         data.breaker = Some(breaker.clone());
         let (icons, server_data_path, log_path, server_addr) = startup_data(settings);
-        let _server = server::main::spawn(server_addr.clone(), event.get_external_handle(), breaker.clone());
+        //let _server = server::main::start(server_addr.clone(), event.get_external_handle(), breaker.clone());
         let _client = client::main::spawn(icons, server_data_path, log_path, server_addr, event.get_external_handle(), breaker);
     }
 }

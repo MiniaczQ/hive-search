@@ -12,7 +12,7 @@ use std::sync::mpsc::Receiver;
 use std::thread::{self, JoinHandle};
 use std::time::SystemTime;
 
-use crate::assets::icons::ServerIcons;
+use super::icons::ServerIcons;
 
 const MARKER: &str = "§5§2§7§d§8§2§a§e§r"; // 0x527D82AE
 

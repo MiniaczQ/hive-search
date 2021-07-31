@@ -11,7 +11,7 @@ use std::sync::mpsc::{SendError, Sender};
 use std::thread::{self, sleep, JoinHandle};
 use std::time::Duration;
 
-use crate::message::client::ClientMessage;
+use crate::messages::ClientMessage;
 
 const LOG_CHECK_FREQUENCY: f32 = 5.0;
 

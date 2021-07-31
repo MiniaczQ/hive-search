@@ -11,8 +11,9 @@ use std::thread::{self, JoinHandle};
 
 use druid::ExtEventSink;
 
-use crate::assets::icons::ServerIcons;
-use crate::{message::client::ClientMessage, nbt::servers::NbtCommand};
+use super::icons::ServerIcons;
+use super::nbt::NbtCommand;
+use crate::messages::ClientMessage;
 
 const CONNECTION_TIMEOUT: f32 = 10.;
 

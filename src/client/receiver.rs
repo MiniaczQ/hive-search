@@ -6,7 +6,8 @@ use std::{net::TcpStream, sync::{Arc, atomic::{AtomicBool, Ordering}, mpsc::Send
 
 use druid::{ExtEventSink, Target};
 
-use crate::{message::server::ServerMessage, nbt::servers::NbtCommand, ui::layouts::client::LAN_COUNT};
+use crate::{messages::ServerMessage, ui::layouts::client::LAN_COUNT};
+use super::nbt::NbtCommand;
 
 pub fn receiver(
     mut server_source: TcpStream,
