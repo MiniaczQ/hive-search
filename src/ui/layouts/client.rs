@@ -1,5 +1,4 @@
-use std::sync::atomic::Ordering;
-
+use async_std::task::block_on;
 use druid::widget::*;
 use druid::*;
 
@@ -28,10 +27,11 @@ pub fn client() -> impl Widget<AppData> {
             new_button::<AppData>("Disconnect")
                 .on_click(|_event, data, _env| {
                     data.state = State::Config;
-                    if let Some(b) = &mut data.breaker {
-                        b.store(false, Ordering::Relaxed);
+                    if let Some(stop_token) = &mut data.stop_token {
+                        block_on(stop_token.resume());
                     }
-                    data.breaker = None;
+                    data.stop_token = None;
+                    data.pause_token = None;
                 })
                 .expand(),
             1.,

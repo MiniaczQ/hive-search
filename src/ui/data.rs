@@ -1,8 +1,10 @@
-use std::{fs::{File, OpenOptions}, net::SocketAddr, path::Path, str::FromStr, sync::{Arc, atomic::AtomicBool}};
+use std::{fs::{File, OpenOptions}, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
 use druid::*;
+
+use crate::sync::PauseToken;
 
 /// Path of the configuration file.
 const SETTINGS_PATH: &str = "config";
@@ -42,7 +44,8 @@ impl Default for Settings {
 pub struct AppData {
     pub state: State,
     pub settings: Settings,
-    pub breaker: Option<Arc<AtomicBool>>,
+    pub stop_token: Option<Arc<PauseToken>>,
+    pub pause_token: Option<Arc<PauseToken>>,
 }
 
 impl Default for AppData {
@@ -50,7 +53,8 @@ impl Default for AppData {
         Self {
             state: State::Config,
             settings: Settings::default(),
-            breaker: None,
+            stop_token: None,
+            pause_token: None,
         }
     }
 }

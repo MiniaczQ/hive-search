@@ -1,4 +1,4 @@
-//! Network communication standards
+//! Network communication standards.
 
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;

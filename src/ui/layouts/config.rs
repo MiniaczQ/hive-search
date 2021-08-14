@@ -1,14 +1,14 @@
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
 use druid::widget::*;
 use druid::*;
 
-use crate::assets::icons::ServerIcons;
+use crate::assets::ServerIcons;
 use crate::client;
 use crate::server;
+use crate::sync::PauseToken;
 
 use super::super::data::*;
 use super::arch::*;
@@ -104,48 +104,65 @@ fn startup_data(settings: &Settings) -> (ServerIcons, String, String, SocketAddr
 /// Called when the 'Host' button is clicked.
 ///
 /// Validates settings and starts server and client threads.
-fn on_click_host(
-    event: &mut EventCtx,
-    data: &mut AppData,
-    _env: &Env,
-) {
+fn on_click_host(event: &mut EventCtx, data: &mut AppData, _env: &Env) {
     let settings = &data.settings;
     let result = validate_settings(settings);
     if let Ok(_) = result {
         save_settings(settings);
         data.state = State::Host;
-        let breaker = Arc::new(AtomicBool::new(true));
-        data.breaker = Some(breaker.clone());
+        let stop_token = Arc::new(PauseToken::new(true));
+        let pause_token = Arc::new(PauseToken::new(false));
+        data.stop_token = Some(stop_token.clone());
+        data.pause_token = Some(pause_token.clone());
         let (icons, server_data_path, log_path, server_addr) = startup_data(settings);
-        //let _server = server::main::start(server_addr.clone(), event.get_external_handle(), breaker.clone());
-        let _client = client::main::spawn(icons, server_data_path, log_path, server_addr, event.get_external_handle(), breaker);
+        let _server = server::start(
+            event.get_external_handle(),
+            stop_token.clone(),
+            pause_token.clone(),
+            server_addr.clone(),
+        );
+        let _client = client::start(
+            event.get_external_handle(),
+            stop_token.clone(),
+            pause_token.clone(),
+            icons,
+            server_data_path,
+            log_path,
+            server_addr,
+        );
     }
 }
 
 /// Called when the 'Connect' button is clicked.
 ///
 /// Validates settings and starts server and client threads.
-fn on_click_connect(
-    event: &mut EventCtx,
-    data: &mut AppData,
-    _env: &Env,
-) {
+fn on_click_connect(event: &mut EventCtx, data: &mut AppData, _env: &Env) {
     let settings = &data.settings;
     let result = validate_settings(settings);
     if let Ok(_) = result {
         save_settings(settings);
         data.state = State::Client;
-        let breaker = Arc::new(AtomicBool::new(true));
-        data.breaker = Some(breaker.clone());
+        let stop_token = Arc::new(PauseToken::new(true));
+        let pause_token = Arc::new(PauseToken::new(false));
+        data.stop_token = Some(stop_token.clone());
+        data.pause_token = Some(pause_token.clone());
         let (icons, server_data_path, log_path, server_addr) = startup_data(settings);
-        let _client = client::main::spawn(icons, server_data_path, log_path, server_addr, event.get_external_handle(), breaker);
+        let _client = client::start(
+            event.get_external_handle(),
+            stop_token.clone(),
+            pause_token.clone(),
+            icons,
+            server_data_path,
+            log_path,
+            server_addr,
+        );
     }
 }
 
 fn networking_select() -> impl Widget<AppData> {
     Flex::row()
         .with_flex_child(
-                new_button::<AppData>("Host")
+            new_button::<AppData>("Host")
                 .on_click(on_click_host)
                 .expand(),
             1.,

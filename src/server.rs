@@ -6,25 +6,13 @@
 //! - Gather response through event sink.
 //! - The server is setup on the provided address.
 
-use std::{collections::HashMap, marker::PhantomData, net::IpAddr, thread};
+use std::{collections::HashMap, net::IpAddr};
 
-use async_std::{
-    channel::{unbounded, Receiver, Sender},
-    net::{SocketAddr, TcpListener, TcpStream},
-    sync::Arc,
-};
-use asynchronous_codec::{Bytes, Decoder, Encoder, LengthCodec};
-use bincode::{DefaultOptions, Error as BincodeError, Options};
-use bytes::BytesMut;
+use async_std::{channel::{unbounded, Receiver, Sender}, net::{SocketAddr, TcpListener, TcpStream}, sync::Arc, task::spawn};
 use druid::{ExtEventSink, Target};
 use futures::*;
-use serde::{Deserialize, Serialize};
 
-use crate::{
-    sync::PauseToken,
-    messages::{ClientMessage, ServerMessage},
-    ui::layouts::host::USER_COUNT,
-};
+use crate::{codec::BincodeCodec, messages::{ClientMessage, ServerMessage}, sync::PauseToken, ui::layouts::host::USER_COUNT};
 
 /// Starts the server threads:
 ///
@@ -46,29 +34,20 @@ pub fn start(
 
     let _pause_token = pause_token.clone();
     let _stop_token = stop_token.clone();
-    thread::Builder::new()
-        .name("Client connections receiver".to_string())
-        .spawn(move || {
-            client_connections_receiver(
-                _stop_token,
-                _pause_token,
-                new_client_ios_sender,
-                server_address,
-            )
-        })
-        .unwrap();
 
-    thread::Builder::new()
-        .name("Server state manager".to_string())
-        .spawn(move || {
-            server_state_manager(
-                ui_event_sink,
-                stop_token,
-                pause_token,
-                new_client_ios_receiver,
-            )
-        })
-        .unwrap();
+    spawn(client_connections_receiver(
+        _stop_token,
+        _pause_token,
+        new_client_ios_sender,
+        server_address,
+    ));
+
+    spawn(server_state_manager(
+        ui_event_sink,
+        stop_token,
+        pause_token,
+        new_client_ios_receiver,
+    ));
 }
 
 /// Client communication interface.
@@ -81,8 +60,8 @@ struct ClientIO {
 /// Map of all connected clients.
 type ClientIOs = HashMap<u64, ClientIO>;
 
-/// Client socket stream with codec.
-type ClientStream =
+/// Socket with bincode encoding and asymetric data.
+type EncodedSocket =
     asynchronous_codec::Framed<TcpStream, BincodeCodec<ServerMessage, ClientMessage>>;
 
 /// Awaits for incoming client connections
@@ -102,7 +81,7 @@ async fn client_connections_receiver(
         select! {
             incoming_connection = incoming_connection => {
                 if let Ok((stream, client_address)) = incoming_connection {
-                    let stream: ClientStream = asynchronous_codec::Framed::new(stream, BincodeCodec::new());
+                    let stream: EncodedSocket = asynchronous_codec::Framed::new(stream, BincodeCodec::new());
                     let (to_server, from_client) = unbounded::<ClientMessage>();
                     let (to_client, from_server) = unbounded::<ServerMessage>();
                     let client_io = ClientIO{to: to_client, from: from_client, ip: client_address.ip()};
@@ -111,7 +90,13 @@ async fn client_connections_receiver(
                     }
                     let stop_token = stop_token.clone();
                     let pause_token = pause_token.clone();
-                    thread::spawn(move || {run_client_io(stop_token, pause_token, to_server, from_server, stream)});
+                    spawn(run_client_io(
+                        stop_token,
+                        pause_token,
+                        to_server,
+                        from_server,
+                        stream
+                    ));
                 }
             },
             _ = stop => break,
@@ -133,7 +118,7 @@ async fn run_client_io(
     pause_token: Arc<PauseToken>,
     to_server: Sender<ClientMessage>,
     from_server: Receiver<ServerMessage>,
-    mut stream: ClientStream,
+    mut stream: EncodedSocket,
 ) {
     while stop_token.is_paused().await {
         let send = from_server.recv().fuse();
@@ -428,68 +413,5 @@ async fn send_to_all(
 ) {
     for (_id, client_io) in client_ios.iter_mut() {
         let _ = client_io.to.send(message.clone()).await;
-    }
-}
-
-/// Bincode codec for asynchronous serialization.
-struct BincodeCodec<Enc, Dec> {
-    options: DefaultOptions,
-    inner: LengthCodec,
-    enc: PhantomData<Enc>,
-    dec: PhantomData<Dec>,
-}
-
-impl<Enc, Dec> BincodeCodec<Enc, Dec>
-where
-    for<'de> Dec: Deserialize<'de> + 'static,
-    for<'de> Enc: Serialize + 'static,
-{
-    /// Creates a new `BincodeCodec` with the associated types
-    fn new() -> BincodeCodec<Enc, Dec> {
-        Self::with_options(bincode::DefaultOptions::new())
-    }
-
-    /// Creates a new `BincodeCodec` with the associated types and provided options
-    fn with_options(options: bincode::DefaultOptions) -> BincodeCodec<Enc, Dec> {
-        BincodeCodec {
-            options,
-            inner: LengthCodec {},
-            enc: PhantomData,
-            dec: PhantomData,
-        }
-    }
-}
-
-impl<Enc, Dec> Decoder for BincodeCodec<Enc, Dec>
-where
-    for<'de> Dec: Deserialize<'de> + 'static,
-    for<'de> Enc: Serialize + 'static,
-{
-    type Item = Dec;
-    type Error = BincodeError;
-
-    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        match self.inner.decode(buf)? {
-            Some(bytes) => Ok(self.options.deserialize(&bytes)?),
-            None => Ok(None),
-        }
-    }
-}
-
-/// Encoder impl encodes object streams to bytes
-impl<Enc, Dec> Encoder for BincodeCodec<Enc, Dec>
-where
-    for<'de> Dec: Deserialize<'de> + 'static,
-    for<'de> Enc: Serialize + 'static,
-{
-    type Item = Enc;
-    type Error = BincodeError;
-
-    fn encode(&mut self, data: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        let size = self.options.serialized_size(&data)?;
-        buf.reserve(size as usize);
-        let message = self.options.serialize(&data)?;
-        self.inner.encode(Bytes::from(message), buf)?;
-        Ok(())
     }
 }

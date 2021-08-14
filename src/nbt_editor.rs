@@ -1,27 +1,26 @@
-/*
-Server data manipulation.
-*/
-
+use async_std::channel::Receiver;
+use futures::{FutureExt, pin_mut, select};
 use nbt::*;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
-use std::thread::{self, JoinHandle};
 use std::time::SystemTime;
 
-use super::icons::ServerIcons;
+use crate::assets::ServerIcons;
+use crate::sync::PauseToken;
 
+/// Hive Search main address
 const MARKER: &str = "§5§2§7§d§8§2§a§e§r"; // 0x527D82AE
 
-pub enum NbtCommand {
+/// Possible NBT operations
+pub enum NbtInstruction {
     SetToNoHost,
     SetToOneHost(SocketAddr),
     SetToManyHosts,
 }
 
+/// Minecraft server representation
 #[derive(Serialize, Deserialize)]
 struct Server {
     name: Option<String>,
@@ -41,6 +40,7 @@ impl Server {
         }
     }
 
+    /// Change notable properties
     fn update(&mut self, name: Option<String>, ip: Option<String>, icon: Option<String>) {
         self.name = name;
         self.ip = ip;
@@ -48,14 +48,13 @@ impl Server {
     }
 }
 
+/// Minecraft server list representation
 #[derive(Serialize, Deserialize)]
 struct ServerData {
     servers: Vec<Server>,
 }
 
-/*
-Return optional server if it starts with the marker.
-*/
+/// Checks if a server has a marker
 fn has_marker<'a>(server: &'a mut Server, marker: &str) -> Option<&'a mut Server> {
     if let Some(name) = &server.name {
         if name.starts_with(marker) {
@@ -65,27 +64,20 @@ fn has_marker<'a>(server: &'a mut Server, marker: &str) -> Option<&'a mut Server
     None
 }
 
-/*
-Return optional server if one starts with the marker.
-*/
+/// Returns the marked server if it exists
 fn get_marked_server<'a>(servers: &'a mut Vec<Server>, marker: &str) -> Option<&'a mut Server> {
     servers
         .into_iter()
         .find_map(|server| has_marker(server, marker))
 }
 
-/*
-Load 'servers.dat'.
-Either for the first time or after an update from client.
-*/
+/// Loads server list from a file
 fn load_data(server_data_path: &String) -> ServerData {
     let file = File::open(server_data_path).expect("Failed to open 'servers.dat'.");
     from_reader(file).expect("Failed to parse 'servers.dat'.")
 }
 
-/*
-Stores current server data into
-*/
+/// Saves server list to a file
 fn save_data(server_data_path: &String, data: &ServerData) {
     let mut file = OpenOptions::new()
         .write(true)
@@ -95,9 +87,7 @@ fn save_data(server_data_path: &String, data: &ServerData) {
     to_writer(&mut file, data, None).expect("Failed to write to 'servers.dat'.");
 }
 
-/*
-Reloads server data if it got externally modified.
-*/
+/// Reloads the server list if it was updated
 fn reload(
     mut data: ServerData,
     server_data_path: &String,
@@ -115,11 +105,8 @@ fn reload(
     data
 }
 
-/*
-Applies instruction to server data.
-If server didn't exist before, it gets created.
-*/
-fn update_server_data(data: &mut ServerData, instruction: NbtCommand, icons: &ServerIcons) {
+/// Applies command to the server list
+fn update_server_data(data: &mut ServerData, instruction: NbtInstruction, icons: &ServerIcons) {
     let hive_search_server = get_marked_server(&mut data.servers, MARKER);
     let (name, opt_ip, opt_icon) = data_from_instruction(instruction, icons);
     if let Some(server) = hive_search_server {
@@ -129,25 +116,23 @@ fn update_server_data(data: &mut ServerData, instruction: NbtCommand, icons: &Se
     }
 }
 
-/*
-Turns instruction into usable data.
-*/
+/// Applies instruction to a server
 fn data_from_instruction(
-    instruction: NbtCommand,
+    instruction: NbtInstruction,
     icons: &ServerIcons,
 ) -> (String, Option<String>, Option<String>) {
     match instruction {
-        NbtCommand::SetToNoHost => (
+        NbtInstruction::SetToNoHost => (
             format!("{}HiveSearch: §7No Games Open", MARKER),
             None,
             icons.no_hosts.clone(),
         ),
-        NbtCommand::SetToOneHost(addr) => (
+        NbtInstruction::SetToOneHost(addr) => (
             format!("{}HiveSearch: §aGame Open", MARKER),
             Some(addr.to_string()),
             None,
         ),
-        NbtCommand::SetToManyHosts => (
+        NbtInstruction::SetToManyHosts => (
             format!("{}HiveSearch: §6Multiple Games Open", MARKER),
             None,
             icons.many_hosts.clone(),
@@ -155,47 +140,40 @@ fn data_from_instruction(
     }
 }
 
-/*
-Runs the functionality.
-*/
-fn run(
-    nbt_source: Receiver<NbtCommand>,
+/// Edits NBT based on incoming commands.
+pub async fn nbt_editor(
+    stop_token: Arc<PauseToken>,
+    pause_token: Arc<PauseToken>,
+    nbt_instruction_recv: Receiver<NbtInstruction>,
     icons: ServerIcons,
     server_data_path: String,
-    breaker: Arc<AtomicBool>,
 ) {
     let mut last_modification: SystemTime = SystemTime::now();
     let mut data: ServerData = load_data(&server_data_path);
-    while breaker.load(Ordering::Relaxed) {
-        let result = nbt_source.recv();
-        if let Ok(instruction) = result {
-            data = reload(data, &server_data_path, &last_modification);
-            update_server_data(&mut data, instruction, &icons);
-            save_data(&server_data_path, &data);
-            last_modification = File::open(&server_data_path)
-                .expect("Failed to open file 'servers.dat'.")
-                .metadata()
-                .expect("Failed to extract metadata of file 'servers.dat'.")
-                .modified()
-                .expect("Failed to extract last modification time of file 'servers.dat'");
-        } else {
-            break;
-        }
-    }
-}
+    while stop_token.is_paused().await {
+        let command = nbt_instruction_recv.recv().fuse();
+        let stop = stop_token.wait().fuse();
+        pin_mut!(command);
+        pin_mut!(stop);
 
-/*
-Start the functionality in another thread.
-Returns handle.
-*/
-pub fn spawn(
-    nbt_source: Receiver<NbtCommand>,
-    icons: ServerIcons,
-    server_data_path: String,
-    breaker: Arc<AtomicBool>,
-) -> JoinHandle<()> {
-    thread::Builder::new()
-        .name("Server Data Editor".to_string())
-        .spawn(move || run(nbt_source, icons, server_data_path, breaker))
-        .expect("Failed to start the Server Data Eeditor thread.")
+        select! {
+            command = command => {
+                if let Ok(command) = command {
+                    data = reload(data, &server_data_path, &last_modification);
+                    update_server_data(&mut data, command, &icons);
+                    save_data(&server_data_path, &data);
+                    last_modification = File::open(&server_data_path)
+                        .unwrap()
+                        .metadata()
+                        .unwrap()
+                        .modified()
+                        .unwrap()
+                } else {
+                    break
+                }
+            }
+            _ = stop => break,
+        }
+        pause_token.wait().await;
+    }
 }

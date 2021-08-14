@@ -1,3 +1,6 @@
+//! Application assets:
+//! - Server icons
+
 use std::io::Write;
 
 use image::{DynamicImage, GenericImageView};
