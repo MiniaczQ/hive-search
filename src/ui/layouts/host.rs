@@ -3,9 +3,11 @@ use druid::widget::*;
 use druid::*;
 
 use super::super::data::*;
-use super::arch::*;
 use super::client::client_status;
 use super::consts::*;
+
+use crate::ui::widgets::dyn_label::DynLabel;
+use crate::ui::widgets::wrappers::{new_button, new_label};
 
 pub const USER_COUNT: Selector<usize> = Selector::new("user-count");
 

@@ -2,8 +2,10 @@ use async_std::task::block_on;
 use druid::widget::*;
 use druid::*;
 
+use crate::ui::widgets::dyn_label::DynLabel;
+use crate::ui::widgets::wrappers::{new_button, new_label};
+
 use super::super::data::*;
-use super::arch::*;
 use super::consts::*;
 
 pub const LAN_COUNT: Selector<u8> = Selector::new("lan-count");

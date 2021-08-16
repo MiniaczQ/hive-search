@@ -46,6 +46,7 @@ pub struct AppData {
     pub settings: Settings,
     pub stop_token: Option<Arc<PauseToken>>,
     pub pause_token: Option<Arc<PauseToken>>,
+    pub timer: bool,
 }
 
 impl Default for AppData {
@@ -55,6 +56,7 @@ impl Default for AppData {
             settings: Settings::default(),
             stop_token: None,
             pause_token: None,
+            timer: false,
         }
     }
 }
