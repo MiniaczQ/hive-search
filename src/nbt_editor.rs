@@ -148,6 +148,7 @@ pub async fn nbt_editor(
     icons: ServerIcons,
     server_data_path: String,
 ) {
+    println!("[nbt editor] started");
     let mut last_modification: SystemTime = SystemTime::now();
     let mut data: ServerData = load_data(&server_data_path);
     while stop_token.is_paused().await {
@@ -169,11 +170,16 @@ pub async fn nbt_editor(
                         .modified()
                         .unwrap()
                 } else {
+                    println!("[nbt editor] client disconnected");
                     break
                 }
             }
-            _ = stop => break,
+            _ = stop => {
+                println!("[nbt editor] stop requested");
+                break
+            },
         }
         pause_token.wait().await;
     }
+    println!("[nbt editor] stopped");
 }

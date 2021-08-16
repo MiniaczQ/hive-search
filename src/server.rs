@@ -12,7 +12,7 @@ use async_std::{channel::{unbounded, Receiver, Sender}, net::{SocketAddr, TcpLis
 use druid::{ExtEventSink, Target};
 use futures::*;
 
-use crate::{codec::BincodeCodec, messages::{ClientMessage, ServerMessage}, sync::PauseToken, ui::layouts::host::USER_COUNT};
+use crate::{codec::BincodeCodec, messages::{ClientMessage, ServerMessage}, sync::PauseToken, ui::{delegate::RUNTIME_ERROR, layouts::host::USER_COUNT}};
 
 /// Starts the server threads:
 ///
@@ -32,10 +32,12 @@ pub fn start(
 ) {
     let (new_client_ios_sender, new_client_ios_receiver) = unbounded();
 
+    let _ui_event_sink = ui_event_sink.clone();
     let _pause_token = pause_token.clone();
     let _stop_token = stop_token.clone();
 
     spawn(client_connections_receiver(
+        _ui_event_sink,
         _stop_token,
         _pause_token,
         new_client_ios_sender,
@@ -67,41 +69,52 @@ type EncodedSocket =
 /// Awaits for incoming client connections
 /// Setups further communication
 async fn client_connections_receiver(
+    ui_event_sink: ExtEventSink,
     stop_token: Arc<PauseToken>,
     pause_token: Arc<PauseToken>,
     new_client_ios: Sender<ClientIO>,
     server_address: SocketAddr,
 ) {
-    let listener = TcpListener::bind(server_address).await.unwrap();
-    while stop_token.is_paused().await {
-        let incoming_connection = listener.accept().fuse();
-        let stop = stop_token.wait().fuse();
-        pin_mut!(incoming_connection);
-        pin_mut!(stop);
-        select! {
-            incoming_connection = incoming_connection => {
-                if let Ok((stream, client_address)) = incoming_connection {
-                    let stream: EncodedSocket = asynchronous_codec::Framed::new(stream, BincodeCodec::new());
-                    let (to_server, from_client) = unbounded::<ClientMessage>();
-                    let (to_client, from_server) = unbounded::<ServerMessage>();
-                    let client_io = ClientIO{to: to_client, from: from_client, ip: client_address.ip()};
-                    if let Err(_) = new_client_ios.send(client_io).await {
-                        break
+    if let Ok(listener) = TcpListener::bind(server_address).await {
+        println!("[server socket] started");
+        while stop_token.is_paused().await {
+            let incoming_connection = listener.accept().fuse();
+            let stop = stop_token.wait().fuse();
+            pin_mut!(incoming_connection);
+            pin_mut!(stop);
+            select! {
+                incoming_connection = incoming_connection => {
+                    if let Ok((stream, client_address)) = incoming_connection {
+                        let stream: EncodedSocket = asynchronous_codec::Framed::new(stream, BincodeCodec::new());
+                        let (to_server, from_client) = unbounded::<ClientMessage>();
+                        let (to_client, from_server) = unbounded::<ServerMessage>();
+                        let client_io = ClientIO{to: to_client, from: from_client, ip: client_address.ip()};
+                        if let Err(_) = new_client_ios.send(client_io).await {
+                            println!("[server socket] state manager disconnected");
+                            break
+                        }
+                        let stop_token = stop_token.clone();
+                        let pause_token = pause_token.clone();
+                        spawn(run_client_io(
+                            stop_token,
+                            pause_token,
+                            to_server,
+                            from_server,
+                            stream
+                        ));
                     }
-                    let stop_token = stop_token.clone();
-                    let pause_token = pause_token.clone();
-                    spawn(run_client_io(
-                        stop_token,
-                        pause_token,
-                        to_server,
-                        from_server,
-                        stream
-                    ));
-                }
-            },
-            _ = stop => break,
-        };
-        pause_token.wait().await;
+                },
+                _ = stop => {
+                    println!("[server socket] stop requested");
+                    break
+                },
+            };
+            pause_token.wait().await;
+        }
+        println!("[server socket] stopped");
+    } else {
+        ui_event_sink
+            .submit_command(RUNTIME_ERROR, (), Target::Auto).ok();
     }
 }
 
@@ -120,6 +133,7 @@ async fn run_client_io(
     from_server: Receiver<ServerMessage>,
     mut stream: EncodedSocket,
 ) {
+    println!("[client handler] started");
     while stop_token.is_paused().await {
         let send = from_server.recv().fuse();
         let recv = stream.try_next().fuse();
@@ -133,29 +147,41 @@ async fn run_client_io(
                 match send {
                     Ok(message) => {
                         if let Err(_) = stream.send(message).await {
+                            println!("[client handler] client disconnected");
                             break
                         }
                     }
-                    Err(_) => break,
+                    Err(_) => {
+                        println!("[client handler] state manager disconnected");
+                        break
+                    },
                 }
             },
             recv = recv => {
                 match recv {
-                    Ok(optional) => {
-                        if let Some(message) = optional {
+                    Ok(opt_message) => {
+                        if let Some(message) = opt_message {
                             if let Err(_) = to_server.send(message).await {
+                                println!("[client handler] state manager disconnected");
                                 break
                             }
                         }
-                    }
-                    Err(_) => break,
+                    },
+                    Err(_) => {
+                        println!("[client handler] client disconnected");
+                        break
+                    },
                 }
             },
-            _ = stop => break,
+            _ = stop => {
+                println!("[client handler] stop requested");
+                break
+            },
         };
 
         pause_token.wait().await;
     }
+    println!("[client handler] stopped");
 }
 
 /// Creates incremental u64 ids starting from 1.
@@ -259,6 +285,7 @@ async fn server_state_manager(
     pause_token: Arc<PauseToken>,
     new_client_ios: Receiver<ClientIO>,
 ) {
+    println!("[state manager] started");
     let mut state = ServerState {
         lan_games: HashMap::new(),
     };
@@ -274,9 +301,15 @@ async fn server_state_manager(
         }
 
         match update {
-            ServerWakeupCause::Stop => break,
+            ServerWakeupCause::Stop => {
+                println!("[state manager] stop requested");
+                break
+            },
             ServerWakeupCause::NewClient(client_io) => {
                 client_ios.insert(id_distributor.next(), client_io);
+                ui_event_sink
+                    .submit_command(USER_COUNT, client_ios.len(), Target::Auto)
+                    .unwrap();
             }
             ServerWakeupCause::NewMessage(result, id) => {
                 if let Ok(message) = result {
@@ -291,12 +324,16 @@ async fn server_state_manager(
                         ClientMessage::StoppedHosting,
                     )
                     .await;
+                    ui_event_sink
+                        .submit_command(USER_COUNT, client_ios.len(), Target::Auto)
+                        .unwrap();
                 }
             }
         }
 
         pause_token.wait().await;
     }
+    println!("[state manager] stopped");
 }
 
 /// Updates server state based on the message.
@@ -391,7 +428,7 @@ fn state_into_message(state: &ServerState) -> ServerMessage {
 
 /// Send message to the targeted client.
 async fn send_to_one(
-    ui_event_sink: &ExtEventSink,
+    _ui_event_sink: &ExtEventSink,
     client_ios: &mut ClientIOs,
     message: ServerMessage,
     target_id: u64,
@@ -400,9 +437,6 @@ async fn send_to_one(
     if let Some(client_io) = result {
         let _ = client_io.to.send(message).await;
     }
-    ui_event_sink
-        .submit_command(USER_COUNT, client_ios.len(), Target::Auto)
-        .unwrap();
 }
 
 /// Send message to all clients.

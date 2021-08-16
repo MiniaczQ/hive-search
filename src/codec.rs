@@ -44,8 +44,13 @@ where
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         match self.inner.decode(buf)? {
-            Some(bytes) => Ok(self.options.deserialize(&bytes)?),
-            None => Ok(None),
+            Some(bytes) => {
+                let result = self.options.deserialize::<Self::Item>(&bytes)?;
+                Ok(Some(result))
+            },
+            None => {
+                Ok(None)
+            },
         }
     }
 }

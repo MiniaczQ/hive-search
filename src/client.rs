@@ -11,7 +11,7 @@ use async_std::io::timeout;
 use async_std::net::TcpStream;
 use async_std::task::{block_on, spawn};
 use druid::{ExtEventSink, Target};
-use futures::{pin_mut, select, FutureExt, SinkExt, TryStreamExt};
+use futures::{FutureExt, SinkExt, TryStreamExt, pin_mut, select};
 
 use crate::assets::ServerIcons;
 use crate::codec::BincodeCodec;
@@ -19,6 +19,7 @@ use crate::log_reader::{log_reader, ClientChange};
 use crate::messages::{ClientMessage, ServerMessage};
 use crate::nbt_editor::{nbt_editor, NbtInstruction};
 use crate::sync::PauseToken;
+use crate::ui::delegate::RUNTIME_ERROR;
 use crate::ui::layouts::client::LAN_COUNT;
 
 const CONNECTION_TIMEOUT: f32 = 5.;
@@ -76,8 +77,10 @@ pub fn start(
             icons,
             server_data_path,
         ));
+        Box::leak(Box::new(_durations_send));
     } else {
-        // TODO host unreachable, return error to UI
+        ui_event_sink
+            .submit_command(RUNTIME_ERROR, (), Target::Auto).ok();
     }
 }
 
@@ -89,6 +92,7 @@ async fn communicate(
     nbt_instruction_send: Sender<NbtInstruction>,
     mut stream: EncodedSocket,
 ) {
+    println!("[client] started");
     stream.send(ClientMessage::Joined).await.ok();
     while stop_token.is_paused().await {
         let server_message = stream.try_next().fuse();
@@ -100,26 +104,37 @@ async fn communicate(
 
         select! {
             server_message = server_message => {
-                if let Ok(server_message) = server_message {
-                    if let Some(server_message) = server_message {
-                        from_server(&ui_event_sink, &nbt_instruction_send, server_message).await;
+                match server_message {
+                    Ok(opt_message) => {
+                        if let Some(message) = opt_message {
+                            from_server(&ui_event_sink, &nbt_instruction_send, message).await;
+                        }
+                    },
+                    Err(_) => {
+                        println!("[client] socket disconnected");
+                        break
                     }
-                } else {
-                    break
                 }
             },
             client_change = client_change => {
                 if let Ok(client_change) = client_change {
                     to_server(&mut stream, client_change).await;
                 } else {
+                    println!("[client] log reader disconnected");
+                    ui_event_sink
+                        .submit_command(RUNTIME_ERROR, (), Target::Auto).ok();
                     break
                 }
             },
-            _ = stop => break,
+            _ = stop => {
+                println!("[client] stop requested");
+                break
+            },
         }
 
         pause_token.wait().await;
     }
+    println!("[client] stopped");
 }
 
 async fn from_server(
@@ -130,21 +145,27 @@ async fn from_server(
     match server_message {
         ServerMessage::NoHost => {
             ui_event_sink
-                .submit_command(LAN_COUNT, 0, Target::Auto)
-                .expect("Failed to submit command.");
-            nbt_instruction_send.send(NbtInstruction::SetToNoHost).await.ok()
+                .submit_command(LAN_COUNT, 0, Target::Auto).ok();
+            nbt_instruction_send
+                .send(NbtInstruction::SetToNoHost)
+                .await
+                .ok()
         }
         ServerMessage::OneHost(addr) => {
             ui_event_sink
-                .submit_command(LAN_COUNT, 1, Target::Auto)
-                .expect("Failed to submit command.");
-            nbt_instruction_send.send(NbtInstruction::SetToOneHost(addr)).await.ok()
+                .submit_command(LAN_COUNT, 1, Target::Auto).ok();
+            nbt_instruction_send
+                .send(NbtInstruction::SetToOneHost(addr))
+                .await
+                .ok()
         }
         ServerMessage::ManyHosts => {
             ui_event_sink
-                .submit_command(LAN_COUNT, 2, Target::Auto)
-                .expect("Failed to submit command.");
-            nbt_instruction_send.send(NbtInstruction::SetToManyHosts).await.ok()
+                .submit_command(LAN_COUNT, 2, Target::Auto).ok();
+            nbt_instruction_send
+                .send(NbtInstruction::SetToManyHosts)
+                .await
+                .ok()
         }
     };
 }

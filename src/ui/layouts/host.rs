@@ -30,9 +30,9 @@ pub fn host() -> impl Widget<AppData> {
                     data.state = State::Config;
                     if let Some(stop_token) = &mut data.stop_token {
                         block_on(stop_token.resume());
+                        data.stop_token = None;
+                        data.pause_token = None;
                     }
-                    data.stop_token = None;
-                    data.pause_token = None;
                 })
                 .expand(),
             1.,

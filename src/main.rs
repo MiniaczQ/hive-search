@@ -24,8 +24,7 @@ fn main() {
     };
     AppLauncher::with_window(hive_window)
         .delegate(Delegate)
-        .log_to_console()
         .launch(data)
-        .expect("Failed to start App.");
+        .ok();
 }
 

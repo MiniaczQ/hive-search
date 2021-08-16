@@ -15,6 +15,7 @@ const STARTING: &str = r"\[..:..:..\] \[main/INFO\]: Started serving on ";
 const STOPPING: &str =
     r"\[..:..:..\] \[Server thread/INFO\]: Stopping singleplayer server as player logged out";
 
+#[derive(Debug)]
 pub enum ClientChange {
     StartedHosting(u16),
     StoppedHosting,
@@ -34,6 +35,7 @@ pub async fn log_reader(
     log_path: String,
     log_sink: Sender<ClientChange>,
 ) {
+    println!("[log reader] started");
     let mut memory = LogPollMemory::new();
     let matcher = RegexSet::new([STARTING, STOPPING]).unwrap();
     while stop_token.is_paused().await {
@@ -50,16 +52,21 @@ pub async fn log_reader(
                 if let Ok(new_duration) = result {
                     duration = new_duration;
                 } else {
+                    println!("[log reader] duration feed disconnected");
                     break
                 }
             },
-            _ = stop => break,
+            _ = stop => {
+                println!("[log reader] stop requested");
+                break
+            },
         }
 
         poll_logs(&mut memory, &matcher, &log_path, &log_sink).await;
 
         pause_token.wait().await;
     }
+    println!("[log reader] stopped");
 }
 
 /// Stores data to detect updates in log files
