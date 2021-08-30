@@ -9,7 +9,7 @@ use crate::assets::ServerIcons;
 use crate::client;
 use crate::server;
 use crate::sync::PauseToken;
-use crate::ui::widgets::timer_checkbox::TimerCheckbox;
+use crate::ui::widgets::timer_config::TimerConfig;
 use crate::ui::widgets::wrappers::{new_button, new_label};
 
 use super::super::data::*;
@@ -19,17 +19,18 @@ use super::consts::*;
 Configuration menu.
 */
 pub fn config() -> impl Widget<AppData> {
-    Flex::column()
-        .with_flex_child(address_input().expand_height(), 1.)
-        .with_spacer(SPACER_SIZE * 2.)
-        .with_flex_child(minecraft_browser_top().expand_height(), 1.)
-        .with_spacer(SPACER_SIZE)
-        .with_flex_child(minecraft_browser_bottom().expand_height(), 1.)
-        .with_spacer(SPACER_SIZE * 2.)
-        .with_flex_child(networking_select().expand_height(), 1.)
-        .with_spacer(SPACER_SIZE * 2.)
-        .with_flex_child(TimerCheckbox::new("Timer").lens(AppData::timer), 1.)
-        .padding(SPACER_SIZE)
+    //Flex::column()
+    //    .with_flex_child(address_input().expand_height(), 1.)
+    //    .with_spacer(SPACER_SIZE * 2.)
+    //    .with_flex_child(minecraft_browser_top().expand_height(), 1.)
+    //    .with_spacer(SPACER_SIZE)
+    //    .with_flex_child(minecraft_browser_bottom().expand_height(), 1.)
+    //    .with_spacer(SPACER_SIZE * 2.)
+    //    .with_flex_child(networking_select().expand_height(), 1.)
+    //    .with_spacer(SPACER_SIZE * 2.)
+    //    .with_flex_child(TimerConfig::new().lens(AppData::timer).expand_height(), 6.)
+    //    .padding(SPACER_SIZE);
+    TimerConfig::new().lens(AppData::timer)
 }
 
 /*

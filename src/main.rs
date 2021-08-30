@@ -9,17 +9,19 @@ mod assets;
 mod log_reader;
 mod nbt_editor;
 mod codec;
+mod resources;
 
 use druid::*;
-use ui::{main::hive, data::*, delegate::Delegate};
+use ui::{data::*, delegate::Delegate, main::hive, widgets::timer::TimerData};
 
 fn main() {
     let hive_window = WindowDesc::new(hive())
+        .window_size_policy(WindowSizePolicy::Content)
         .title("HiveSearch")
-        .resizable(false)
-        .window_size((600., 160.));
+        .resizable(false);
     let data: AppData = AppData {
         settings: load_settings(),
+        timer: TimerData::load(),
         ..Default::default()
     };
     AppLauncher::with_window(hive_window)

@@ -6,4 +6,4 @@ pub mod main;
 pub mod data;
 pub mod delegate;
 pub mod layouts;
-mod widgets;
+pub mod widgets;

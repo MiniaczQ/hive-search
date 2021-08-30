@@ -6,6 +6,8 @@ use druid::*;
 
 use crate::sync::PauseToken;
 
+use super::widgets::timer::TimerData;
+
 /// Path of the configuration file.
 const SETTINGS_PATH: &str = "config";
 
@@ -46,7 +48,8 @@ pub struct AppData {
     pub settings: Settings,
     pub stop_token: Option<Arc<PauseToken>>,
     pub pause_token: Option<Arc<PauseToken>>,
-    pub timer: bool,
+    pub timer: TimerData,
+    pub void: String,
 }
 
 impl Default for AppData {
@@ -56,7 +59,8 @@ impl Default for AppData {
             settings: Settings::default(),
             stop_token: None,
             pause_token: None,
-            timer: false,
+            timer: TimerData::default(),
+            void: "a".to_owned(),
         }
     }
 }

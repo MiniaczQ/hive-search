@@ -1,3 +1,10 @@
 pub mod dyn_label;
 pub mod wrappers;
-pub mod timer_checkbox;
+pub mod timer_toggle;
+pub mod timer;
+pub mod color_picker;
+pub mod section;
+pub mod consts;
+pub mod timer_config;
+pub mod tooltip;
+pub mod my_widget_ext;

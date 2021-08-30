@@ -1,0 +1,1 @@
+pub const MC_FONT: &'static [u8] = include_bytes!(r"./resources/MINECRAFT_FONT.TTF");

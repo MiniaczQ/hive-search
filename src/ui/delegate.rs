@@ -8,7 +8,7 @@ pub const RUNTIME_ERROR: Selector<()> = Selector::new("runtime-error");
 pub struct Delegate;
 
 impl AppDelegate<AppData> for Delegate {
-    fn command (
+    fn command(
         &mut self,
         _ctx: &mut DelegateCtx,
         _target: Target,
@@ -18,7 +18,7 @@ impl AppDelegate<AppData> for Delegate {
     ) -> Handled {
         if let Some(file_info) = cmd.get(commands::OPEN_FILE) {
             data.settings.minecraft_path = file_info.path().to_str().unwrap().to_string();
-            return Handled::Yes
+            return Handled::Yes;
         }
         if let Some(()) = cmd.get(RUNTIME_ERROR) {
             data.state = State::Config;
@@ -27,7 +27,7 @@ impl AppDelegate<AppData> for Delegate {
                 data.stop_token = None;
                 data.pause_token = None;
             }
-            return Handled::Yes
+            return Handled::Yes;
         }
         Handled::No
     }
