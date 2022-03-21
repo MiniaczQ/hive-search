@@ -41,7 +41,6 @@ impl Widget<TimerData> for TimerToggle {
                 .show_titlebar(false)
                 .resizable(false)
                 .title("Timer")
-                .set_topmost(true)
                 .set_position(Point::new(data.position[0], data.position[1]));
                 
                 let id = window.id;

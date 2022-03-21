@@ -80,17 +80,15 @@ impl<T, W: Widget<T>> Controller<T, W> for TooltipController {
                             window_pos: *window_pos,
                         })
                     } else {
+                        let label = Label::<()>::new(self.tip.clone());
                         let win_id = ctx.new_sub_window(
                             WindowConfig::default()
                                 .show_titlebar(false)
                                 .window_size_policy(WindowSizePolicy::Content)
-                                .set_level(WindowLevel::Tooltip)
                                 .set_position(
-                                    ctx.window().get_position()
-                                        + window_pos.to_vec2()
-                                        + cursor_size.to_vec2(),
+                                    ctx.to_screen(Point::new(0., ctx.size().height))
                                 ),
-                            Label::<()>::new(self.tip.clone()),
+                            label,
                             (),
                             env.clone(),
                         );

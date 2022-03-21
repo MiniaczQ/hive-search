@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 mod messages;
 mod client;
 mod server;
