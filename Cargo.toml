@@ -1,5 +1,5 @@
 [package]
-name = "hive-search"
+name = "hive_search"
 authors = ["DuncanRuns", "MiniaczQ"]
 version = "0.1.0"
 edition = "2018"
